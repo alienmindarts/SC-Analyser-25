@@ -36,11 +36,12 @@
     insightsList: document.getElementById('insights-list'),
     scatterDiv: document.getElementById('scatter-plays-likes'),
     artistControls: document.getElementById('artistControls'),
+    datasetControls: document.getElementById('dataset-controls'),
     detailsPanel: document.getElementById('detailsPanel'),
   };
 
   // ---------- State ----------
-  let dataset = null;         // full processed dataset { rows, totals, thresholds, avgEngagement, medianPLR }
+  let datasets = [];          // array of { name, color, data: { rows, totals, thresholds, avgEngagement, medianPLR }, visible: true }
   let currentRows = [];       // filtered + sorted rows for table and charts
   let sortState = { key: 'plays', dir: 'desc' };
   let scatterChart = null;
@@ -96,29 +97,93 @@
     };
   }
 
+  function getDatasetColor(index) {
+    const colors = [
+      '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+      '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+    ];
+    return colors[index % colors.length];
+  }
+
+  function median(values) {
+    const arr = values.filter(Number.isFinite).slice().sort((a, b) => a - b);
+    if (arr.length === 0) return null;
+    const mid = Math.floor(arr.length / 2);
+    if (arr.length % 2 === 0) {
+      return (arr[mid - 1] + arr[mid]) / 2;
+    }
+    return arr[mid];
+  }
+
   // ---------- File Loading ----------
-  async function handleCSVText(text) {
+  async function handleSingleCSV(text, filename) {
     try {
-      dataset = Parser.parseAndProcessCSV(text, getOptions());
-      currentRows = dataset.rows.slice();
-
-      // Group data by artist for chart functionality
-      artistData = {};
-      currentRows.forEach(row => {
-        const artist = row.artist || 'Unknown';
-        if (!artistData[artist]) {
-          artistData[artist] = [];
-        }
-        artistData[artist].push(row);
-      });
-
-      applySearch();
+      const data = Parser.parseAndProcessCSV(text, getOptions());
+      const name = filename.replace('.csv', '').replace(/_/g, ' ');
+      const color = getDatasetColor(datasets.length);
+      datasets.push({ name, color, data, visible: true });
+      updateCombinedData();
       renderAll();
-      els.btnExport.disabled = !dataset || dataset.rows.length === 0;
+      createDatasetControls();
+      els.btnExport.disabled = datasets.length === 0;
     } catch (err) {
       console.error('Parse error:', err);
       alert('Failed to parse CSV. See console for details.');
     }
+  }
+
+  function updateCombinedData() {
+    // Combine rows from all visible datasets
+    currentRows = [];
+    artistData = {};
+    datasets.forEach(ds => {
+      if (ds.visible) {
+        ds.data.rows.forEach(row => {
+          // Add dataset info to row
+          row.datasetName = ds.name;
+          row.datasetColor = ds.color;
+          currentRows.push(row);
+          const artist = row.artist || 'Unknown';
+          if (!artistData[artist]) {
+            artistData[artist] = [];
+          }
+          artistData[artist].push(row);
+        });
+      }
+    });
+    applySearch();
+  }
+
+  function createDatasetControls() {
+    if (!els.datasetControls) return;
+    els.datasetControls.innerHTML = '';
+    datasets.forEach((ds, index) => {
+      const container = document.createElement('div');
+      container.className = 'dataset-checkbox';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `dataset-${index}`;
+      checkbox.checked = ds.visible;
+      checkbox.addEventListener('change', () => {
+        ds.visible = checkbox.checked;
+        updateCombinedData();
+        renderAll();
+      });
+
+      const colorDiv = document.createElement('div');
+      colorDiv.className = 'dataset-color';
+      colorDiv.style.backgroundColor = ds.color;
+
+      const label = document.createElement('label');
+      label.htmlFor = `dataset-${index}`;
+      label.textContent = ds.name;
+
+      container.appendChild(checkbox);
+      container.appendChild(colorDiv);
+      container.appendChild(label);
+      els.datasetControls.appendChild(container);
+    });
   }
 
   function readFile(file) {
@@ -135,21 +200,25 @@
     els.dropzone.classList.remove('dragover');
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      alert('Please drop a CSV file.');
-      return;
+    for (const file of files) {
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        alert('Please drop CSV files only.');
+        return;
+      }
     }
-    const text = await readFile(file);
-    await handleCSVText(text);
+    for (const file of files) {
+      const text = await readFile(file);
+      await handleSingleCSV(text, file.name);
+    }
   }
 
   async function handleFilePick(e) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
-    const text = await readFile(file);
-    await handleCSVText(text);
+    for (const file of files) {
+      const text = await readFile(file);
+      await handleSingleCSV(text, file.name);
+    }
     e.target.value = '';
   }
 
@@ -160,7 +229,7 @@
       const resp = await fetch(path);
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const text = await resp.text();
-      await handleCSVText(text);
+      await handleSingleCSV(text, 'STATS NEW FORMAT');
     } catch (err) {
       console.warn('Sample fetch failed. Likely due to browser blocking file:// fetch. Use a local server or drag-drop the CSV.', err);
       alert('Could not load sample automatically. If you opened index.html directly from the file system, the browser may block local fetches. Drag and drop the CSV into the dropzone or run a local server.');
@@ -176,17 +245,30 @@
   }
 
   function renderKPIs() {
-    if (!dataset) {
+    if (datasets.length === 0) {
       els.kpis.totalPlays.textContent = '0';
       els.kpis.avgEng.textContent = '0.00%';
       els.kpis.medianPLR.textContent = '0.00';
       els.kpis.trackCount.textContent = '0';
       return;
     }
-    els.kpis.totalPlays.textContent = fmt.int(dataset.totals.plays);
-    els.kpis.avgEng.textContent = fmt.pct2(dataset.avgEngagement);
-    els.kpis.medianPLR.textContent = dataset.medianPLR != null ? fmt.num2(dataset.medianPLR) : '';
-    els.kpis.trackCount.textContent = String(dataset.rows.length);
+    const visibleDatasets = datasets.filter(ds => ds.visible);
+    if (visibleDatasets.length === 0) {
+      els.kpis.totalPlays.textContent = '0';
+      els.kpis.avgEng.textContent = '0.00%';
+      els.kpis.medianPLR.textContent = '0.00';
+      els.kpis.trackCount.textContent = '0';
+      return;
+    }
+    const totalPlays = visibleDatasets.reduce((sum, ds) => sum + ds.data.totals.plays, 0);
+    const totalTracks = visibleDatasets.reduce((sum, ds) => sum + ds.data.rows.length, 0);
+    const weightedAvgEng = visibleDatasets.reduce((sum, ds) => sum + ds.data.avgEngagement * ds.data.rows.length, 0) / totalTracks;
+    const allPLRs = visibleDatasets.flatMap(ds => ds.data.rows.map(r => r.play_like_ratio).filter(Number.isFinite));
+    const medianPLR = median(allPLRs);
+    els.kpis.totalPlays.textContent = fmt.int(totalPlays);
+    els.kpis.avgEng.textContent = fmt.pct2(weightedAvgEng);
+    els.kpis.medianPLR.textContent = medianPLR != null ? fmt.num2(medianPLR) : '';
+    els.kpis.trackCount.textContent = String(totalTracks);
   }
 
   function renderTable() {
@@ -202,6 +284,10 @@
     const frag = document.createDocumentFragment();
     for (const d of rows) {
       const tr = document.createElement('tr');
+      // Add subtle background color for dataset
+      if (d.datasetColor) {
+        tr.style.backgroundColor = d.datasetColor + '20'; // 20 for alpha
+      }
 
       const cells = [
         { key: 'title', val: d.title },
@@ -252,12 +338,13 @@
   function renderInsights() {
     const el = els.insightsList;
     el.innerHTML = '';
-    if (!dataset || dataset.rows.length === 0) return;
+    const visibleRows = currentRows;
+    if (visibleRows.length === 0) return;
 
-    const finitePLRRows = dataset.rows.filter(r => Number.isFinite(r.play_like_ratio));
+    const finitePLRRows = visibleRows.filter(r => Number.isFinite(r.play_like_ratio));
     const topPLR = finitePLRRows.slice().sort((a, b) => a.play_like_ratio - b.play_like_ratio).slice(0, 3);
     const bottomPLR = finitePLRRows.slice().sort((a, b) => b.play_like_ratio - a.play_like_ratio).slice(0, 3);
-    const topEng = dataset.rows.slice().sort((a, b) => b.engagement_rate_pct - a.engagement_rate_pct).slice(0, 3);
+    const topEng = visibleRows.slice().sort((a, b) => b.engagement_rate_pct - a.engagement_rate_pct).slice(0, 3);
 
     const items = [];
     if (topPLR.length) items.push(`Top Play/Like: ${topPLR.map(r => r.title).join(' • ')}`);
@@ -332,27 +419,46 @@
 
   function applySearch() {
     const q = (els.search?.value || '').trim().toLowerCase();
-    if (!dataset) {
+    if (datasets.length === 0) {
       currentRows = [];
       return;
     }
+    const allRows = datasets.filter(ds => ds.visible).flatMap(ds => ds.data.rows.map(r => ({ ...r, datasetName: ds.name, datasetColor: ds.color })));
     if (!q) {
-      currentRows = dataset.rows.slice();
+      currentRows = allRows.slice();
     } else {
-      currentRows = dataset.rows.filter(r => (r.title || '').toLowerCase().includes(q));
+      currentRows = allRows.filter(r => (r.title || '').toLowerCase().includes(q));
     }
     applySort();
   }
 
   // ---------- Export ----------
   function doExport() {
-    if (!dataset) return;
-    const csv = Parser.toCSV(dataset);
+    if (datasets.length === 0) return;
+    const visibleDatasets = datasets.filter(ds => ds.visible);
+    if (visibleDatasets.length === 0) return;
+    // Combine data for export
+    const combinedRows = visibleDatasets.flatMap(ds => ds.data.rows);
+    const combinedTotals = combinedRows.reduce((acc, d) => {
+      acc.plays += d.plays;
+      acc.likes += d.likes;
+      acc.reposts += d.reposts;
+      acc.comments += d.comments;
+      return acc;
+    }, { plays: 0, likes: 0, reposts: 0, comments: 0 });
+    const combinedData = {
+      rows: combinedRows,
+      totals: combinedTotals,
+      thresholds: {}, // Not used in export
+      avgEngagement: 0, // Not calculated
+      medianPLR: 0
+    };
+    const csv = Parser.toCSV(combinedData);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'soundcloud_analytics.csv';
+    a.download = 'soundcloud_analytics_combined.csv';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -393,12 +499,17 @@
     // Export
     els.btnExport.addEventListener('click', doExport);
 
-    // Options change re-process if we have raw? We only have processed data; for now re-parse requires re-load.
-    // To keep simple, we just inform user to re-load CSV after toggling options.
+    // Options change re-process all datasets
     [els.optMissingAsZero, els.optShowQuality, els.categoryMode].forEach(ctrl => {
-      ctrl?.addEventListener('change', () => {
-        if (dataset) {
-          alert('Option changed. Please re-load the CSV (Load sample or upload again) to re-process with new settings.');
+      ctrl?.addEventListener('change', async () => {
+        if (datasets.length > 0) {
+          // Re-process all datasets with new options
+          for (let i = 0; i < datasets.length; i++) {
+            const ds = datasets[i];
+            // We need the original text, but we don't have it. For now, alert to re-upload.
+            alert('Option changed. Please re-upload the CSVs to re-process with new settings.');
+            break;
+          }
         }
       });
     });
@@ -453,19 +564,14 @@
         return null;
       }
 
-      // Group data by artist if available
-      const artists = [...new Set(rows.map(r => r.artist || 'Unknown'))];
-      selectedArtists = artists;
+      // Group data by dataset
+      const datasetNames = [...new Set(rows.map(r => r.datasetName))];
 
-      // Create artist controls
-      createArtistControls(artists);
-
-      // Filter data based on selected artists and search
+      // Filter data based on search
       const filteredRows = rows.filter(row => {
-        const matchesArtist = selectedArtists.includes(row.artist || 'Unknown');
         const matchesSearch = !currentSearchTerm ||
           (row.title || '').toLowerCase().includes(currentSearchTerm.toLowerCase());
-        return matchesArtist && matchesSearch;
+        return matchesSearch;
       });
 
       // Calculate min/max values for scaling
@@ -477,39 +583,32 @@
       const minLikePct = Math.min(...likePctValues);
       const maxLikePct = Math.max(...likePctValues);
 
-      // Generate distinct colors for artists
-      const getArtistColor = (index) => {
-        const colors = [
-          '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-          '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
-        ];
-        return colors[index % colors.length];
-      };
-
-      // Create traces for each artist
-      const traces = artists.map((artist, index) => {
-        const artistRows = filteredRows.filter(r => (r.artist || 'Unknown') === artist);
+      // Create traces for each dataset
+      const traces = datasetNames.map((dsName, index) => {
+        const dsRows = filteredRows.filter(r => r.datasetName === dsName);
+        const ds = datasets.find(d => d.name === dsName);
 
         return {
-          x: artistRows.map(r => r.plays),
-          y: artistRows.map(r => r.like_pct),
+          x: dsRows.map(r => r.plays),
+          y: dsRows.map(r => r.like_pct),
           mode: 'markers',
           type: 'scatter',
-          name: artist,
+          name: dsName,
           marker: {
-            size: artistRows.map(r => Math.max(8, Math.min(25, Math.log(r.plays + 1) * 2))),
-            color: getArtistColor(index),
+            size: dsRows.map(r => Math.max(8, Math.min(25, Math.log(r.plays + 1) * 2))),
+            color: ds ? ds.color : '#888',
             line: { width: 1, color: 'rgba(255,255,255,0.8)' }
           },
-          customdata: artistRows.map(r => ({
+          customdata: dsRows.map(r => ({
             title: r.title,
             plays: r.plays,
             likes: r.likes,
             likePct: r.like_pct,
-            artist: artist
+            artist: r.artist || 'Unknown',
+            dataset: dsName
           })),
           hovertemplate:
-            `<b>${artist}</b><br>` +
+            `<b>${dsName}</b><br>` +
             `<b>%{customdata.title}</b><br>` +
             `Plays: %{x:,.0f}<br>` +
             `Likes: %{customdata.likes:,.0f}<br>` +
@@ -562,39 +661,6 @@
       });
 
       return traces;
-    }
-
-    function createArtistControls(artists) {
-      if (!els.artistControls) return;
-
-      els.artistControls.innerHTML = '<h4>Artists</h4>';
-      els.artistControls.style.display = artists.length > 1 ? 'block' : 'none';
-
-      artists.forEach(artist => {
-        const container = document.createElement('div');
-        container.className = 'artist-checkbox';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `artist-${artist}`;
-        checkbox.checked = selectedArtists.includes(artist);
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            selectedArtists.push(artist);
-          } else {
-            selectedArtists = selectedArtists.filter(a => a !== artist);
-          }
-          renderCharts();
-        });
-
-        const label = document.createElement('label');
-        label.htmlFor = `artist-${artist}`;
-        label.textContent = artist;
-
-        container.appendChild(checkbox);
-        container.appendChild(label);
-        els.artistControls.appendChild(container);
-      });
     }
 
     return { buildScatter };

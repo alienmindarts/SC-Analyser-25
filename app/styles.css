@@ -292,6 +292,41 @@ canvas {
   cursor: pointer;
 }
 
+/* Dataset controls */
+.datasets h2 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+}
+
+#dataset-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.dataset-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dataset-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.dataset-checkbox label {
+  font-size: 14px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.dataset-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
 /* Details panel */
 .details-panel {
   position: fixed;

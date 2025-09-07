@@ -26,14 +26,14 @@
       <section class="card uploader" aria-labelledby="uploader-title">
         <h2 id="uploader-title">Data input</h2>
 
-        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Drop CSV file here or use the file picker">
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Drop CSV files here or use the file picker">
           <div>
-            <strong>Drop CSV</strong> here or click to choose a file
+            <strong>Drop CSV files</strong> here or click to choose files
           </div>
           <div class="hint">Supported: duplicate headers, empty rows, commas in numbers, k/K notation, relative dates</div>
         </div>
 
-        <input type="file" id="file-input" accept=".csv,text/csv" aria-label="Choose CSV file" />
+        <input type="file" id="file-input" accept=".csv,text/csv" multiple aria-label="Choose CSV files" />
 
         <div class="options">
           <label class="switch">
@@ -59,6 +59,18 @@
               <li>Relative dates like "8 days ago", "6 months ago", "1 year ago" supported</li>
             </ul>
           </details>
+        </div>
+      </section>
+
+      <section class="card datasets" aria-labelledby="datasets-title">
+        <h2 id="datasets-title">Datasets</h2>
+        <div id="dataset-controls">
+          <!-- Dataset checkboxes will be added here dynamically -->
+          <!-- Example: <div class="dataset-checkbox">
+            <input type="checkbox" id="dataset-0" checked />
+            <div class="dataset-color" style="background-color: #1f77b4;"></div>
+            <label for="dataset-0">Artist Name</label>
+          </div> -->
         </div>
       </section>
     </aside>
