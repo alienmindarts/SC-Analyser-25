@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoundCloud Analyser 2025</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="title">
+      <span class="logo" aria-hidden="true">SC▲</span>
+      <h1>SoundCloud Analyser</h1>
+      <span class="subtitle">Engagement insights dashboard</span>
+    </div>
+    <div class="header-actions">
+      <button id="load-sample" class="btn">Load sample</button>
+      <button id="export-csv" class="btn outline" disabled>Export CSV</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="card uploader" aria-labelledby="uploader-title">
+        <h2 id="uploader-title">Data input</h2>
+
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Drop CSV file here or use the file picker">
+          <div>
+            <strong>Drop CSV</strong> here or click to choose a file
+          </div>
+          <div class="hint">Supported: duplicate headers, empty rows, commas in numbers, k/K notation, relative dates</div>
+        </div>
+
+        <input type="file" id="file-input" accept=".csv,text/csv" aria-label="Choose CSV file" />
+
+        <div class="options">
+          <label class="switch">
+            <input type="checkbox" id="opt-missing-as-zero" checked />
+            <span>Treat missing numerics as 0</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="opt-show-quality" checked />
+            <span>Show data quality flags</span>
+          </label>
+          <label class="switch">
+            <span>Category mode</span>
+            <select id="category-mode" aria-label="Category mode">
+              <option value="quantile" selected>Quantile (quartiles)</option>
+            </select>
+          </label>
+
+          <details class="help">
+            <summary>CSV format tips</summary>
+            <ul>
+              <li>Headers must include: TRACK, POSTED, LIKES, REPOSTS, PLAYS, COMMENTS</li>
+              <li>Numbers can include commas or k notation (e.g., "2,475", 14.2K)</li>
+              <li>Relative dates like "8 days ago", "6 months ago", "1 year ago" supported</li>
+            </ul>
+          </details>
+        </div>
+      </section>
+    </aside>
+
+    <section class="content">
+      <section class="kpis" aria-label="Key metrics">
+        <div class="kpi">
+          <div class="kpi-label">Total Plays</div>
+          <div class="kpi-value" id="kpi-total-plays">0</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Avg Engagement %</div>
+          <div class="kpi-value" id="kpi-avg-engagement">0.00%</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Median Play/Like</div>
+          <div class="kpi-value" id="kpi-median-plr">0.00</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Tracks</div>
+          <div class="kpi-value" id="kpi-track-count">0</div>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="Views">
+        <div class="tab-group">
+          <button class="tab active" data-tab="table" aria-controls="tab-table" aria-selected="true">Table</button>
+          <button class="tab" data-tab="charts" aria-controls="tab-charts" aria-selected="false">Charts</button>
+          <button class="tab" data-tab="insights" aria-controls="tab-insights" aria-selected="false">Insights</button>
+        </div>
+        <div class="tabs-right">
+          <input type="search" id="search" placeholder="Search tracks..." aria-label="Search tracks" />
+        </div>
+      </nav>
+
+      <section id="tab-table" class="tabpanel active" role="region" aria-labelledby="tab-table">
+        <div class="table-container">
+          <table id="data-table">
+            <thead>
+              <tr>
+                <th data-key="title" class="sortable">Track</th>
+                <th data-key="posted_iso" class="sortable">Posted</th>
+                <th data-key="days_since_upload" class="sortable">Days</th>
+                <th data-key="plays" class="sortable">Plays</th>
+                <th data-key="likes" class="sortable">Likes</th>
+                <th data-key="reposts" class="sortable">Reposts</th>
+                <th data-key="comments" class="sortable">Comments</th>
+                <th data-key="play_like_ratio" class="sortable">Play/Like</th>
+                <th data-key="engagement_rate_pct" class="sortable">Eng %</th>
+                <th data-key="like_pct" class="sortable">Like %</th>
+                <th data-key="plays_per_day" class="sortable">Plays/Day</th>
+                <th data-key="category" class="sortable">Category</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- rows injected by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-charts" class="tabpanel" role="region" aria-labelledby="tab-charts">
+        <div class="charts-grid">
+          <section class="chart-card">
+            <header class="chart-header">
+              <h3>Plays vs Like %</h3>
+              <div class="legend">
+                <span class="chip cat-excellent">Excellent</span>
+                <span class="chip cat-good">Good</span>
+                <span class="chip cat-average">Average</span>
+                <span class="chip cat-poor">Poor</span>
+              </div>
+            </header>
+            <canvas id="scatter-plays-likes" height="320" aria-label="Scatter plot: plays (X) vs like percentage (Y)"></canvas>
+          </section>
+        </div>
+      </section>
+
+      <section id="tab-insights" class="tabpanel" role="region" aria-labelledby="tab-insights">
+        <div class="card">
+          <h3>Insights</h3>
+          <ul id="insights-list" class="insights-list">
+            <!-- insights injected by app.js -->
+          </ul>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>v0.1.0</span>
+    <span>•</span>
+    <span>Quantile categorization enabled</span>
+  </footer>
+
+  <script src="parser.js"></script>
+  <script src="charts.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

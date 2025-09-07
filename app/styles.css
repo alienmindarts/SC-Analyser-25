@@ -1,0 +1,272 @@
+:root{
+  --bg:#121417;
+  --surface:#1a1f24;
+  --muted:#20262c;
+  --border:#2a3138;
+  --text:#e6edf3;
+  --text-dim:#9aa7b2;
+  --primary:#7bd88f;
+  --accent:#5cc8ff;
+  --danger:#ff6b6b;
+  --warning:#f3c969;
+  --good:#6dd3c1;
+  --avg:#e0aaff;
+  --poor:#ff8fa3;
+  --focus:#a0d7ff;
+}
+
+*{ box-sizing:border-box }
+
+html,body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+
+a{ color:var(--accent); text-decoration:none }
+a:hover{ text-decoration:underline }
+
+button, input, select{
+  color:var(--text);
+  background:var(--muted);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:14px;
+}
+
+button.btn{
+  background:var(--primary);
+  color:#0b1a0f;
+  border-color:transparent;
+  font-weight:600;
+  cursor:pointer;
+}
+button.btn:hover{ filter:brightness(0.95) }
+button.btn:disabled{ opacity:.5; cursor:not-allowed }
+
+button.btn.outline{
+  background:transparent;
+  color:var(--primary);
+  border-color:var(--primary);
+}
+
+.app-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:14px 18px;
+  background:linear-gradient(180deg, #0f1216 0%, #121417 100%);
+  border-bottom:1px solid var(--border);
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+.title{
+  display:flex; align-items:center; gap:12px;
+}
+.title h1{
+  font-size:18px; margin:0; font-weight:700;
+}
+.subtitle{ color:var(--text-dim); font-size:12px }
+.logo{
+  display:inline-grid; place-items:center;
+  width:28px; height:28px; border-radius:6px;
+  background:var(--primary); color:#0b1a0f; font-weight:800;
+}
+
+.header-actions{ display:flex; gap:8px; }
+
+.layout{
+  display:grid;
+  grid-template-columns: 320px 1fr;
+  gap:16px;
+  padding:16px;
+}
+
+.sidebar{ position:relative }
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px;
+}
+.uploader h2{ margin:0 0 10px 0; font-size:16px }
+
+.dropzone{
+  display:grid;
+  place-items:center;
+  gap:6px;
+  height:120px;
+  border:1px dashed var(--border);
+  border-radius:10px;
+  background: #13171c;
+  color:var(--text-dim);
+  margin-bottom:10px;
+  outline:none;
+}
+.dropzone:focus{
+  border-color:var(--focus);
+  box-shadow:0 0 0 3px #0b3a57 inset;
+}
+.dropzone.dragover{
+  background:#10161c;
+  border-color:var(--accent);
+  color:var(--accent);
+}
+.hint{ font-size:12px; color:var(--text-dim) }
+
+#file-input{ width:100%; margin:8px 0; background:transparent; padding:6px }
+
+.options{
+  display:grid; gap:8px; margin-top:8px;
+}
+.switch{
+  display:flex; align-items:center; gap:8px; font-size:14px;
+}
+.switch input[type="checkbox"]{ width:16px; height:16px }
+.switch select{ flex:1 }
+
+.help summary{ cursor:pointer; color:var(--accent) }
+.help ul{ margin:8px 0 0 16px; color:var(--text-dim) }
+
+.content{ display:grid; gap:12px }
+
+.kpis{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap:10px;
+}
+.kpi{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;
+}
+.kpi-label{ color:var(--text-dim); font-size:12px }
+.kpi-value{ font-size:22px; font-weight:700; margin-top:6px }
+
+.tabs{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px;
+}
+.tab-group{ display:flex; gap:8px }
+.tab{
+  background:var(--surface);
+  border:1px solid var(--border);
+  padding:8px 12px;
+  border-radius:10px;
+  cursor:pointer;
+}
+.tab.active{
+  border-color:var(--primary);
+  color:#0b1a0f;
+  background:linear-gradient(180deg, var(--primary), #5ecb8b);
+}
+
+.tabs-right{ display:flex; align-items:center; gap:8px }
+#search{ width:260px }
+
+.tabpanel{ display:none }
+.tabpanel.active{ display:block }
+
+.table-container{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:auto;
+}
+table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  min-width:960px;
+}
+thead th{
+  position:sticky; top:0;
+  background:#151a20;
+  color:var(--text-dim);
+  font-weight:600;
+  text-align:left;
+  font-size:12px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+  cursor:default;
+}
+th.sortable{ cursor:pointer }
+tbody td{
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+}
+tbody tr:hover{ background:#151a20 }
+
+.chip{
+  display:inline-flex; align-items:center;
+  padding:2px 8px; border-radius:999px;
+  font-size:12px; font-weight:700;
+  border:1px solid var(--border);
+  background:#0f1317;
+}
+.cat-excellent{ color:#0c3519; background:#9bf6b2; border-color:#73d98a }
+.cat-good{ color:#07322c; background:#9ef2e4; border-color:#6dd3c1 }
+.cat-average{ color:#2a0a3b; background:#e8c6ff; border-color:#c79af3 }
+.cat-poor{ color:#3b0a16; background:#ffb3c1; border-color:#ff8fa3 }
+
+.legend{ display:flex; gap:6px; flex-wrap:wrap }
+.chart-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;
+}
+.chart-header{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:6px;
+}
+.charts-grid{ display:grid; gap:12px }
+
+.insights-list{
+  list-style:none; padding:0; margin:0; display:grid; gap:8px;
+}
+.insights-list li{
+  background:#141921;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px;
+}
+
+.app-footer{
+  display:flex; gap:8px; justify-content:center; align-items:center;
+  padding:12px; color:var(--text-dim); border-top:1px solid var(--border);
+  margin-top:12px;
+}
+
+/* metric heat backgrounds */
+td[data-key="play_like_ratio"],
+td[data-key="engagement_rate_pct"],
+td[data-key="plays_per_day"]{
+  position:relative;
+}
+td.heat::before{
+  content:"";
+  position:absolute; inset:0 0 0 0;
+  background: linear-gradient(90deg, rgba(123,216,143,0.15), transparent);
+  pointer-events:none;
+}
+
+/* focus styles */
+:focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+}
+
+/* responsive */
+@media (max-width: 1100px){
+  .layout{
+    grid-template-columns: 1fr;
+  }
+  #search{ width:100% }
+}
