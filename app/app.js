@@ -461,12 +461,12 @@
 
       // Calculate min/max values for scaling
       const playsValues = filteredRows.map(r => r.plays).filter(Number.isFinite);
-      const ratioValues = filteredRows.map(r => r.play_like_ratio).filter(Number.isFinite);
+      const likePctValues = filteredRows.map(r => r.like_pct).filter(Number.isFinite);
 
       const minPlays = Math.min(...playsValues);
       const maxPlays = Math.max(...playsValues);
-      const minRatio = Math.min(...ratioValues);
-      const maxRatio = Math.max(...ratioValues);
+      const minLikePct = Math.min(...likePctValues);
+      const maxLikePct = Math.max(...likePctValues);
 
       // Generate distinct colors for artists
       const getArtistColor = (index) => {
@@ -483,7 +483,7 @@
 
         return {
           x: artistRows.map(r => r.plays),
-          y: artistRows.map(r => r.play_like_ratio),
+          y: artistRows.map(r => r.like_pct),
           mode: 'markers',
           type: 'scatter',
           name: artist,
@@ -496,7 +496,7 @@
             title: r.title,
             plays: r.plays,
             likes: r.likes,
-            ratio: r.play_like_ratio,
+            likePct: r.like_pct,
             artist: artist
           })),
           hovertemplate:
@@ -504,14 +504,14 @@
             `<b>%{customdata.title}</b><br>` +
             `Plays: %{x:,.0f}<br>` +
             `Likes: %{customdata.likes:,.0f}<br>` +
-            `Ratio: %{y:.2f}%<br>` +
+            `Like %: %{y:.2f}%<br>` +
             `<extra></extra>`
         };
       });
 
       const layout = {
         title: {
-          text: 'SoundCloud: Plays vs Play/Like Ratio',
+          text: 'SoundCloud: Plays vs Like Percentage',
           font: { size: 16, weight: 600 }
         },
         xaxis: {
@@ -522,9 +522,9 @@
           showgrid: true
         },
         yaxis: {
-          title: { text: 'Play/Like Ratio (%)', font: { size: 14 } },
+          title: { text: 'Like %', font: { size: 14 } },
           type: 'linear',
-          autorange: true,
+          range: [0, Math.max(100, maxLikePct * 1.1)],
           gridcolor: 'rgba(0,0,0,0.1)',
           showgrid: true
         },
@@ -605,7 +605,7 @@
     if (titleEl) titleEl.textContent = track.title || 'Unknown Track';
     if (playsEl) playsEl.textContent = fmt.int(track.plays);
     if (likesEl) likesEl.textContent = fmt.int(track.likes);
-    if (ratioEl) ratioEl.textContent = fmt.num2(track.ratio) + '%';
+    if (ratioEl) ratioEl.textContent = fmt.num2(track.likePct) + '%';
 
     // Show panel with animation
     panel.style.display = 'block';
