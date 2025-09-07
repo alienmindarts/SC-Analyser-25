@@ -394,6 +394,14 @@
 
     // Search
     els.search.addEventListener('input', doSearch);
+
+    // Window resize for charts
+    const debouncedResize = debounce(() => {
+      if (document.querySelector('#tab-charts').classList.contains('active')) {
+        renderCharts();
+      }
+    }, 150);
+    window.addEventListener('resize', debouncedResize);
   }
 
   // ---------- Charts module wrapper ----------

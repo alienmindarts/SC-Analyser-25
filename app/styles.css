@@ -221,12 +221,21 @@ tbody tr:hover{ background:#151a20 }
   border:1px solid var(--border);
   border-radius:12px;
   padding:12px;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
 }
 .chart-header{
   display:flex; align-items:center; justify-content:space-between;
   margin-bottom:6px;
 }
 .charts-grid{ display:grid; gap:12px }
+
+canvas {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+}
 
 .insights-list{
   list-style:none; padding:0; margin:0; display:grid; gap:8px;
