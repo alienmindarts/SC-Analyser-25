@@ -29,10 +29,14 @@
     tabs: document.querySelectorAll('.tab'),
     tabpanels: document.querySelectorAll('.tabpanel'),
     search: document.getElementById('search'),
+    trackSearch: document.getElementById('trackSearch'),
+    clearSearch: document.getElementById('clearSearch'),
     table: document.getElementById('data-table'),
     tbody: document.querySelector('#data-table tbody'),
     insightsList: document.getElementById('insights-list'),
-    scatterCanvas: document.getElementById('scatter-plays-likes'),
+    scatterDiv: document.getElementById('scatter-plays-likes'),
+    artistControls: document.getElementById('artistControls'),
+    detailsPanel: document.getElementById('detailsPanel'),
   };
 
   // ---------- State ----------
@@ -40,6 +44,9 @@
   let currentRows = [];       // filtered + sorted rows for table and charts
   let sortState = { key: 'plays', dir: 'desc' };
   let scatterChart = null;
+  let currentSearchTerm = '';
+  let artistData = {};        // Grouped data by artist
+  let selectedArtists = [];
 
   // ---------- Utils ----------
   const fmt = {
@@ -94,6 +101,17 @@
     try {
       dataset = Parser.parseAndProcessCSV(text, getOptions());
       currentRows = dataset.rows.slice();
+
+      // Group data by artist for chart functionality
+      artistData = {};
+      currentRows.forEach(row => {
+        const artist = row.artist || 'Unknown';
+        if (!artistData[artist]) {
+          artistData[artist] = [];
+        }
+        artistData[artist].push(row);
+      });
+
       applySearch();
       renderAll();
       els.btnExport.disabled = !dataset || dataset.rows.length === 0;
@@ -254,13 +272,9 @@
   }
 
   function renderCharts() {
-    if (!els.scatterCanvas) return;
-    if (scatterChart) {
-      scatterChart.destroy();
-      scatterChart = null;
-    }
+    if (!els.scatterDiv) return;
     const rows = currentRows;
-    scatterChart = Charts.buildScatter(els.scatterCanvas, rows);
+    scatterChart = Charts.buildScatter(els.scatterDiv, rows);
   }
 
   // ---------- Sorting & Search ----------
@@ -395,6 +409,24 @@
     // Search
     els.search.addEventListener('input', doSearch);
 
+    // Track search for charts
+    if (els.trackSearch) {
+      els.trackSearch.addEventListener('input', (e) => {
+        currentSearchTerm = e.target.value.toLowerCase();
+        renderCharts();
+      });
+    }
+
+    if (els.clearSearch) {
+      els.clearSearch.addEventListener('click', () => {
+        if (els.trackSearch) {
+          els.trackSearch.value = '';
+          currentSearchTerm = '';
+          renderCharts();
+        }
+      });
+    }
+
     // Window resize for charts
     const debouncedResize = debounce(() => {
       if (document.querySelector('#tab-charts').classList.contains('active')) {
@@ -406,86 +438,187 @@
 
   // ---------- Charts module wrapper ----------
   const Charts = (function () {
-    function buildScatter(canvas, rows) {
-      const data = rows
-        .filter(r => Number.isFinite(r.plays) && Number.isFinite(r.play_like_ratio))
-        .map(r => ({
-          x: r.plays,
-          y: r.play_like_ratio,
-          title: r.title,
-          r: Math.max(3, Math.min(20, Math.sqrt(r.plays) / 10)) // Bubble size based on plays
-        }));
+    function buildScatter(div, rows) {
+      if (!rows || rows.length === 0) {
+        Plotly.newPlot(div, [], {});
+        return null;
+      }
 
-      const datasets = [{
-        label: 'Tracks',
-        data: data,
-        backgroundColor: 'rgba(123,216,143,0.7)',
-        borderColor: 'rgba(123,216,143,1)',
-        borderWidth: 1,
-      }];
+      // Group data by artist if available
+      const artists = [...new Set(rows.map(r => r.artist || 'Unknown'))];
+      selectedArtists = artists;
 
-      const chart = new Chart(canvas, {
-        type: 'bubble',
-        data: { datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label(ctx) {
-                  const p = ctx.raw;
-                  const title = p.title ? ` ${p.title}` : '';
-                  return `${title}: Plays: ${fmt.int(p.x)}, Ratio: ${fmt.num2(p.y)}`;
-                }
-              }
-            }
+      // Create artist controls
+      createArtistControls(artists);
+
+      // Filter data based on selected artists and search
+      const filteredRows = rows.filter(row => {
+        const matchesArtist = selectedArtists.includes(row.artist || 'Unknown');
+        const matchesSearch = !currentSearchTerm ||
+          (row.title || '').toLowerCase().includes(currentSearchTerm.toLowerCase());
+        return matchesArtist && matchesSearch;
+      });
+
+      // Calculate min/max values for scaling
+      const playsValues = filteredRows.map(r => r.plays).filter(Number.isFinite);
+      const ratioValues = filteredRows.map(r => r.play_like_ratio).filter(Number.isFinite);
+
+      const minPlays = Math.min(...playsValues);
+      const maxPlays = Math.max(...playsValues);
+      const minRatio = Math.min(...ratioValues);
+      const maxRatio = Math.max(...ratioValues);
+
+      // Generate distinct colors for artists
+      const getArtistColor = (index) => {
+        const colors = [
+          '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+          '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+        ];
+        return colors[index % colors.length];
+      };
+
+      // Create traces for each artist
+      const traces = artists.map((artist, index) => {
+        const artistRows = filteredRows.filter(r => (r.artist || 'Unknown') === artist);
+
+        return {
+          x: artistRows.map(r => r.plays),
+          y: artistRows.map(r => r.play_like_ratio),
+          mode: 'markers',
+          type: 'scatter',
+          name: artist,
+          marker: {
+            size: artistRows.map(r => Math.max(8, Math.min(25, Math.log(r.plays + 1) * 2))),
+            color: getArtistColor(index),
+            line: { width: 1, color: 'rgba(255,255,255,0.8)' }
           },
-          scales: {
-            x: {
-              title: { display: true, text: 'Plays', color: '#9aa7b2' },
-              ticks: { color: '#9aa7b2' },
-              grid: { color: 'rgba(154,167,178,0.12)' }
-            },
-            y: {
-              title: { display: true, text: 'Play/Like Ratio', color: '#9aa7b2' },
-              ticks: { color: '#9aa7b2' },
-              grid: { color: 'rgba(154,167,178,0.12)' }
-            }
-          }
+          customdata: artistRows.map(r => ({
+            title: r.title,
+            plays: r.plays,
+            likes: r.likes,
+            ratio: r.play_like_ratio,
+            artist: artist
+          })),
+          hovertemplate:
+            `<b>${artist}</b><br>` +
+            `<b>%{customdata.title}</b><br>` +
+            `Plays: %{x:,.0f}<br>` +
+            `Likes: %{customdata.likes:,.0f}<br>` +
+            `Ratio: %{y:.2f}%<br>` +
+            `<extra></extra>`
+        };
+      });
+
+      const layout = {
+        title: {
+          text: 'SoundCloud: Plays vs Play/Like Ratio',
+          font: { size: 16, weight: 600 }
+        },
+        xaxis: {
+          title: { text: 'Plays', font: { size: 14 } },
+          type: 'log',
+          autorange: true,
+          gridcolor: 'rgba(0,0,0,0.1)',
+          showgrid: true
+        },
+        yaxis: {
+          title: { text: 'Play/Like Ratio (%)', font: { size: 14 } },
+          type: 'linear',
+          autorange: true,
+          gridcolor: 'rgba(0,0,0,0.1)',
+          showgrid: true
+        },
+        margin: { t: 50, b: 80, l: 60, r: 20 },
+        showlegend: true,
+        hovermode: 'closest',
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)'
+      };
+
+      const config = {
+        responsive: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d']
+      };
+
+      Plotly.newPlot(div, traces, layout, config);
+
+      // Add click handler
+      div.on('plotly_click', function(data) {
+        if (data.points.length > 0) {
+          const point = data.points[0];
+          const trackData = point.data.customdata[point.pointIndex];
+          showTrackDetails(trackData);
         }
       });
-      return chart;
+
+      return traces;
     }
 
-    function regressionLine(points) {
-      if (!points || points.length < 2) return null;
-      let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-      for (const p of points) {
-        sumX += p.x; sumY += p.y;
-        sumXY += p.x * p.y;
-        sumXX += p.x * p.x;
-      }
-      const n = points.length;
-      const denom = (n * sumXX - sumX * sumX);
-      if (denom === 0) return null;
-      const a = (n * sumXY - sumX * sumY) / denom; // slope
-      const b = (sumY - a * sumX) / n;             // intercept
-      return { a, b };
-    }
+    function createArtistControls(artists) {
+      if (!els.artistControls) return;
 
-    function minMaxX(points) {
-      let min = Infinity, max = -Infinity;
-      for (const p of points) {
-        if (p.x < min) min = p.x;
-        if (p.x > max) max = p.x;
-      }
-      return [min, max];
+      els.artistControls.innerHTML = '<h4>Artists</h4>';
+      els.artistControls.style.display = artists.length > 1 ? 'block' : 'none';
+
+      artists.forEach(artist => {
+        const container = document.createElement('div');
+        container.className = 'artist-checkbox';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `artist-${artist}`;
+        checkbox.checked = selectedArtists.includes(artist);
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            selectedArtists.push(artist);
+          } else {
+            selectedArtists = selectedArtists.filter(a => a !== artist);
+          }
+          renderCharts();
+        });
+
+        const label = document.createElement('label');
+        label.htmlFor = `artist-${artist}`;
+        label.textContent = artist;
+
+        container.appendChild(checkbox);
+        container.appendChild(label);
+        els.artistControls.appendChild(container);
+      });
     }
 
     return { buildScatter };
   })();
+
+  // ---------- Track Details ----------
+  function showTrackDetails(track) {
+    if (!els.detailsPanel) return;
+
+    const panel = els.detailsPanel;
+    const titleEl = panel.querySelector('#track-title');
+    const playsEl = panel.querySelector('#plays');
+    const likesEl = panel.querySelector('#likes');
+    const ratioEl = panel.querySelector('#ratio');
+    const playButton = panel.querySelector('#playButton');
+
+    if (titleEl) titleEl.textContent = track.title || 'Unknown Track';
+    if (playsEl) playsEl.textContent = fmt.int(track.plays);
+    if (likesEl) likesEl.textContent = fmt.int(track.likes);
+    if (ratioEl) ratioEl.textContent = fmt.num2(track.ratio) + '%';
+
+    // Show panel with animation
+    panel.style.display = 'block';
+    panel.style.animation = 'slideUp 0.3s ease';
+
+    // Add close button handler
+    const closeButton = panel.querySelector('.close-button');
+    if (closeButton) {
+      closeButton.onclick = () => {
+        panel.style.display = 'none';
+      };
+    }
+  }
 
   // ---------- Init ----------
   function init() {
