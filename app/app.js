@@ -407,57 +407,37 @@
   // ---------- Charts module wrapper ----------
   const Charts = (function () {
     function buildScatter(canvas, rows) {
-      const cats = ['Excellent', 'Good', 'Average', 'Poor'];
-      const catColor = {
-        Excellent: 'rgba(123,216,143,0.95)',
-        Good: 'rgba(109,211,193,0.95)',
-        Average: 'rgba(232,198,255,0.95)',
-        Poor: 'rgba(255,179,193,0.95)',
-      };
-      const datasets = cats.map(cat => ({
-        label: cat,
-        data: rows
-          .filter(r => r.category === cat && Number.isFinite(r.plays) && Number.isFinite(r.like_pct))
-          .map(r => ({ x: r.plays, y: r.like_pct, title: r.title })),
-        backgroundColor: catColor[cat],
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      }));
+      const data = rows
+        .filter(r => Number.isFinite(r.plays) && Number.isFinite(r.play_like_ratio))
+        .map(r => ({
+          x: r.plays,
+          y: r.play_like_ratio,
+          title: r.title,
+          r: Math.max(3, Math.min(20, Math.sqrt(r.plays) / 10)) // Bubble size based on plays
+        }));
 
-      // Regression (least squares) on all points with finite plays and like %
-      const pts = rows
-        .filter(r => Number.isFinite(r.plays) && Number.isFinite(r.like_pct))
-        .map(r => ({ x: r.plays, y: r.like_pct }));
-      const trend = regressionLine(pts);
-      if (trend) {
-        const [minX, maxX] = minMaxX(pts);
-        const y1 = trend.a * minX + trend.b;
-        const y2 = trend.a * maxX + trend.b;
-        datasets.push({
-          label: 'Trend',
-          data: [{ x: minX, y: y1 }, { x: maxX, y: y2 }],
-          type: 'line',
-          borderColor: 'rgba(92,200,255,0.9)',
-          borderWidth: 2,
-          pointRadius: 0,
-          tension: 0,
-        });
-      }
+      const datasets = [{
+        label: 'Tracks',
+        data: data,
+        backgroundColor: 'rgba(123,216,143,0.7)',
+        borderColor: 'rgba(123,216,143,1)',
+        borderWidth: 1,
+      }];
 
       const chart = new Chart(canvas, {
-        type: 'scatter',
+        type: 'bubble',
         data: { datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { labels: { color: '#e6edf3' } },
+            legend: { display: false },
             tooltip: {
               callbacks: {
                 label(ctx) {
                   const p = ctx.raw;
                   const title = p.title ? ` ${p.title}` : '';
-                  return `${ctx.dataset.label}${title}: (${fmt.int(p.x)}, ${fmt.pct2(p.y)})`;
+                  return `${title}: Plays: ${fmt.int(p.x)}, Ratio: ${fmt.num2(p.y)}`;
                 }
               }
             }
@@ -469,8 +449,8 @@
               grid: { color: 'rgba(154,167,178,0.12)' }
             },
             y: {
-              title: { display: true, text: 'Like %', color: '#9aa7b2' },
-              ticks: { color: '#9aa7b2', callback: (v) => v + '%' },
+              title: { display: true, text: 'Play/Like Ratio', color: '#9aa7b2' },
+              ticks: { color: '#9aa7b2' },
               grid: { color: 'rgba(154,167,178,0.12)' }
             }
           }
