@@ -302,6 +302,15 @@
     currentRows.sort((a, b) => {
       const va = a[key];
       const vb = b[key];
+
+      // Special handling for category column
+      if (key === 'category') {
+        const categoryOrder = { 'Excellent': 1, 'Good': 2, 'Average': 3, 'Poor': 4 };
+        const orderA = categoryOrder[va] || 5;
+        const orderB = categoryOrder[vb] || 5;
+        return sign * (orderA - orderB);
+      }
+
       // Handle strings vs numbers
       if (typeof va === 'string' || typeof vb === 'string') {
         return sign * String(va || '').localeCompare(String(vb || ''));
